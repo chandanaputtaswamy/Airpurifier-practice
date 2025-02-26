@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time AQI Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f3f4f6;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .aqi-box {
+            font-size: 18px;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 5px;
+            color: white;
+            margin-top: 10px;
+        }
+        .good { background-color: green; }
+        .moderate { background-color: yellow; color: black; }
+        .unhealthy { background-color: orange; }
+        .very-unhealthy { background-color: red; }
+        .hazardous { background-color: purple; }
+        canvas { margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Real-Time Air Quality Index (AQI)</h1>
+        <p id="alert" class="aqi-box">Fetching data...</p>
+        <p>Current AQI: <span id="aqi-value">--</span></p>
+        <canvas id="aqiChart"></canvas>
+    </div>
+
+    <script>
+        const API_URL = "https://api.waqi.info/feed/delhi/?token=ddb93ad117466b003ee13ef793de68540cea26d8";
+        let aqiData = [];
+
+        function fetchAQI() {
+            fetch(API_URL)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "ok") {
+                        const aqi = data.data.aqi;
+                        updateUI(aqi);
+                        updateChart(aqi);
+                    }
+                })
+                .catch(error => console.error("Error fetching AQI data:", error));
+        }
+
+        function updateUI(aqi) {
+            document.getElementById("aqi-value").textContent = aqi;
+            const alertBox = document.getElementById("alert");
+
+            if (aqi <= 50) {
+                alertBox.textContent = "Good - Air quality is great!";
+                alertBox.className = "aqi-box good";
+            } else if (aqi <= 100) {
+                alertBox.textContent = "Moderate - Some pollutants present.";
+                alertBox.className = "aqi-box moderate";
+            } else if (aqi <= 150) {
+                alertBox.textContent = "Unhealthy for Sensitive Groups.";
+                alertBox.className = "aqi-box unhealthy";
+            } else if (aqi <= 200) {
+                alertBox.textContent = "Unhealthy - Avoid prolonged exposure.";
+                alertBox.className = "aqi-box very-unhealthy";
+            } else {
+                alertBox.textContent = "Hazardous - Stay indoors!";
+                alertBox.className = "aqi-box hazardous";
+            }
+        }
+
+        // Initialize Chart
+        let ctx = document.getElementById("aqiChart").getContext("2d");
+        let aqiChart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: [],
+                datasets: [{
+                    label: "AQI Level",
+                    data: [],
+                    borderColor: "blue",
+                    borderWidth: 2,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: { min: 0, max: 400 }
+                }
+            }
+        });
+
+        function updateChart(aqi) {
+            let time = new Date().toLocaleTimeString();
+            if (aqiData.length >= 10) aqiData.shift();
+            aqiData.push({ time, aqi });
+
+            aqiChart.data.labels = aqiData.map(entry => entry.time);
+            aqiChart.data.datasets[0].data = aqiData.map(entry => entry.aqi);
+            aqiChart.update();
+        }
+
+        // Fetch AQI every 1 minute
+        fetchAQI();
+        setInterval(fetchAQI, 60000);
+    </script>
+
+</body>
+</html>
